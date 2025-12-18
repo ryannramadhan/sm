@@ -1,0 +1,59 @@
+# Node modules (will be installed in container)
+node_modules/
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation (optional)
+*.md
+!README.md
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build files
+dist/
+build/
+
+# Session data (will be mounted as volume)
+auth_info_baileys/
+
+# Uploaded media (will be mounted as volume)
+public/assets/
+
+# Nginx config (host-specific)
+nginx.conf
+setup-ssl.sh
+DEPLOYMENT.md

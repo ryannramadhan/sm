@@ -1,0 +1,24 @@
+{
+  "name": "ghost-mentions",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "bot": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@itsukichan/baileys": "^7.3.2",
+    "express": "^5.1.0",
+    "link-preview-js": "^3.1.0",
+    "multer": "^2.0.2",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "socket.io": "^4.8.1"
+  }
+}

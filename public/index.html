@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Status Mentions Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link
+      href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        background: #0f172a;
+        color: #e2e8f0;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+      .card {
+        background: #1e293b;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid #334155;
+      }
+      .qr-box {
+        background: white;
+        padding: 1rem;
+        border-radius: 8px;
+        display: inline-block;
+      }
+      textarea,
+      input {
+        width: 100%;
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 0.75rem;
+        color: #e2e8f0;
+        margin-top: 0.5rem;
+      }
+      button {
+        background: #3b82f6;
+        color: white;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        margin-top: 1rem;
+      }
+      button:hover {
+        background: #2563eb;
+      }
+      button:disabled {
+        background: #475569;
+        cursor: not-allowed;
+      }
+      .log-box {
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 1rem;
+        max-height: 300px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 0.875rem;
+      }
+      .log-item {
+        padding: 0.25rem 0;
+      }
+      .log-success {
+        color: #10b981;
+      }
+      .log-error {
+        color: #ef4444;
+      }
+      .log-info {
+        color: #3b82f6;
+      }
+      .status-connected {
+        color: #10b981;
+      }
+      .status-disconnected {
+        color: #ef4444;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1
+        style="
+          font-size: 2rem;
+          font-weight: bold;
+          margin-bottom: 2rem;
+          text-align: center;
+        "
+      >
+        📱 Status Mentions Test
+      </h1>
+
+      <!-- Status Connection -->
+      <div class="card">
+        <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem">
+          <i class="bx bx-wifi"></i> WhatsApp Connection
+        </h2>
+        <div style="margin-bottom: 1rem">
+          Status:
+          <span id="connectionStatus" class="status-disconnected"
+            >Disconnected</span
+          >
+        </div>
+
+        <!-- QR Code -->
+        <div id="qrSection" style="text-align: center; display: none">
+          <div class="qr-box">
+            <img id="qrCode" style="max-width: 256px; width: 100%" />
+          </div>
+          <p style="margin-top: 1rem; color: #94a3b8">
+            Scan QR Code with WhatsApp
+          </p>
+        </div>
+
+        <button id="connectBtn" onclick="connectWhatsApp()">
+          <i class="bx bx-link"></i> Connect WhatsApp
+        </button>
+      </div>
+
+      <!-- Send Form -->
+      <div class="card">
+        <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem">
+          <i class="bx bx-send"></i> Send Status Mention
+        </h2>
+
+        <label style="display: block; margin-bottom: 0.5rem; font-weight: 500">
+          Target Phone Numbers (one per line):
+        </label>
+        <textarea
+          id="jidsInput"
+          rows="5"
+          placeholder="6281234567890&#10;+6282345678901&#10;6283456789012&#10;&#10;Format: plain numbers with or without +"
+        ></textarea>
+
+        <label
+          style="
+            display: block;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+          "
+        >
+          Message Type:
+        </label>
+        <div style="display: flex; gap: 1rem; margin-top: 0.5rem">
+          <label style="display: flex; align-items: center; gap: 0.5rem">
+            <input
+              type="radio"
+              name="messageType"
+              value="text"
+              checked
+              onchange="toggleMediaType()"
+            />
+            <span>Text Only</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem">
+            <input
+              type="radio"
+              name="messageType"
+              value="image"
+              onchange="toggleMediaType()"
+            />
+            <span>Image</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem">
+            <input
+              type="radio"
+              name="messageType"
+              value="video"
+              onchange="toggleMediaType()"
+            />
+            <span>Video</span>
+          </label>
+        </div>
+
+        <div id="mediaSection" style="display: none; margin-top: 1rem">
+          <label
+            style="display: block; margin-bottom: 0.5rem; font-weight: 500"
+          >
+            Upload Media:
+          </label>
+          <input
+            type="file"
+            id="mediaFile"
+            accept="image/*,video/*"
+            style="padding: 0.5rem"
+          />
+          <div id="mediaPreview" style="margin-top: 1rem; display: none">
+            <img
+              id="previewImg"
+              style="max-width: 200px; border-radius: 8px; display: none"
+            />
+            <video
+              id="previewVid"
+              controls
+              style="max-width: 300px; border-radius: 8px; display: none"
+            ></video>
+            <p
+              id="fileName"
+              style="margin-top: 0.5rem; color: #94a3b8; font-size: 0.875rem"
+            ></p>
+          </div>
+        </div>
+
+        <label
+          style="
+            display: block;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+          "
+        >
+          Caption/Text:
+        </label>
+        <textarea id="messageText" rows="3" placeholder="Hello Everyone :3">
+Hello Everyone :3</textarea
+        >
+
+        <button id="sendBtn" onclick="sendStatusMention()" disabled>
+          <i class="bx bx-paper-plane"></i> Send Status Mention
+        </button>
+      </div>
+
+      <!-- Logs -->
+      <div class="card">
+        <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem">
+          <i class="bx bx-terminal"></i> Logs
+        </h2>
+        <div id="logBox" class="log-box">
+          <div class="log-item log-info">Ready to connect...</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const socket = io();
+      let isConnected = false;
+
+      // Check status on page load
+      window.addEventListener("DOMContentLoaded", () => {
+        fetch("/api/test/status")
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.connected) {
+              document.getElementById("qrSection").style.display = "none";
+              document.getElementById("connectionStatus").textContent =
+                "Connected ✓";
+              document.getElementById("connectionStatus").className =
+                "status-connected";
+              document.getElementById("connectBtn").disabled = true;
+              document.getElementById("sendBtn").disabled = false;
+              isConnected = true;
+              addLog("Already connected to WhatsApp!", "success");
+            } else if (data.isConnecting) {
+              addLog("Connection in progress...", "info");
+            }
+          })
+          .catch((err) => {
+            addLog("Failed to check status: " + err.message, "error");
+          });
+      });
+
+      // Socket events
+      socket.on("qr", (qr) => {
+        if (!qr) {
+          document.getElementById("qrSection").style.display = "none";
+          return;
+        }
+        document.getElementById("qrSection").style.display = "block";
+        document.getElementById("qrCode").src = qr;
+        addLog("QR Code generated. Please scan!", "info");
+      });
+
+      socket.on("ready", () => {
+        document.getElementById("qrSection").style.display = "none";
+        document.getElementById("connectionStatus").textContent = "Connected ✓";
+        document.getElementById("connectionStatus").className =
+          "status-connected";
+        document.getElementById("connectBtn").disabled = true;
+        document.getElementById("sendBtn").disabled = false;
+        isConnected = true;
+        addLog("WhatsApp connected successfully!", "success");
+      });
+
+      socket.on("disconnected", () => {
+        document.getElementById("connectionStatus").textContent =
+          "Disconnected";
+        document.getElementById("connectionStatus").className =
+          "status-disconnected";
+        document.getElementById("connectBtn").disabled = false;
+        document.getElementById("sendBtn").disabled = true;
+        isConnected = false;
+        addLog("WhatsApp disconnected", "error");
+      });
+
+      socket.on("test-log", (data) => {
+        addLog(data.message, data.type);
+      });
+
+      function addLog(message, type = "info") {
+        const logBox = document.getElementById("logBox");
+        const logItem = document.createElement("div");
+        logItem.className = `log-item log-${type}`;
+        const timestamp = new Date().toLocaleTimeString();
+        logItem.textContent = `[${timestamp}] ${message}`;
+        logBox.appendChild(logItem);
+        logBox.scrollTop = logBox.scrollHeight;
+      }
+
+      function toggleMediaType() {
+        const messageType = document.querySelector(
+          'input[name="messageType"]:checked'
+        ).value;
+        const mediaSection = document.getElementById("mediaSection");
+
+        if (messageType === "text") {
+          mediaSection.style.display = "none";
+        } else {
+          mediaSection.style.display = "block";
+        }
+      }
+
+      // Media file preview
+      document.addEventListener("DOMContentLoaded", () => {
+        const mediaFile = document.getElementById("mediaFile");
+        if (mediaFile) {
+          mediaFile.addEventListener("change", (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const preview = document.getElementById("mediaPreview");
+            const previewImg = document.getElementById("previewImg");
+            const previewVid = document.getElementById("previewVid");
+            const fileName = document.getElementById("fileName");
+
+            preview.style.display = "block";
+            fileName.textContent = file.name;
+
+            if (file.type.startsWith("image/")) {
+              previewImg.style.display = "block";
+              previewVid.style.display = "none";
+              previewImg.src = URL.createObjectURL(file);
+            } else if (file.type.startsWith("video/")) {
+              previewImg.style.display = "none";
+              previewVid.style.display = "block";
+              previewVid.src = URL.createObjectURL(file);
+            }
+          });
+        }
+      });
+
+      function connectWhatsApp() {
+        document.getElementById("connectBtn").disabled = true;
+        addLog("Connecting to WhatsApp...", "info");
+        fetch("/api/test/connect", { method: "POST" })
+          .then((r) => r.json())
+          .then((data) => {
+            addLog(data.message, data.success ? "success" : "error");
+          })
+          .catch((err) => {
+            addLog("Connection error: " + err.message, "error");
+            document.getElementById("connectBtn").disabled = false;
+          });
+      }
+
+      async function sendStatusMention() {
+        const jidsText = document.getElementById("jidsInput").value.trim();
+        const messageText = document.getElementById("messageText").value.trim();
+        const messageType = document.querySelector(
+          'input[name="messageType"]:checked'
+        ).value;
+        const mediaFile = document.getElementById("mediaFile");
+
+        if (!jidsText) {
+          addLog("Please fill phone numbers!", "error");
+          return;
+        }
+
+        if (
+          messageType !== "text" &&
+          (!mediaFile.files || !mediaFile.files[0])
+        ) {
+          addLog("Please select a media file!", "error");
+          return;
+        }
+
+        const jids = jidsText
+          .split("\n")
+          .map((j) => j.trim())
+          .filter((j) => j);
+
+        if (jids.length === 0) {
+          addLog("No valid phone numbers found!", "error");
+          return;
+        }
+
+        addLog(`Sending status mention to ${jids.length} targets...`, "info");
+        document.getElementById("sendBtn").disabled = true;
+
+        try {
+          let mediaPath = null;
+
+          // Upload media if not text
+          if (messageType !== "text" && mediaFile.files[0]) {
+            addLog("Uploading media...", "info");
+            const formData = new FormData();
+            formData.append("media", mediaFile.files[0]);
+
+            const uploadRes = await fetch("/api/test/upload", {
+              method: "POST",
+              body: formData,
+            });
+
+            const uploadData = await uploadRes.json();
+            if (!uploadData.success) {
+              throw new Error(uploadData.message);
+            }
+
+            mediaPath = uploadData.path;
+            addLog("Media uploaded successfully!", "success");
+          }
+
+          // Send status mention
+          const response = await fetch("/api/test/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jids,
+              text: messageText,
+              messageType: messageType,
+              mediaPath: mediaPath,
+            }),
+          });
+
+          const data = await response.json();
+          addLog(data.message, data.success ? "success" : "error");
+          if (data.details) {
+            addLog(`Details: ${data.details}`, "info");
+          }
+        } catch (err) {
+          addLog("Send error: " + err.message, "error");
+        } finally {
+          document.getElementById("sendBtn").disabled = false;
+        }
+      }
+    </script>
+  </body>
+</html>
