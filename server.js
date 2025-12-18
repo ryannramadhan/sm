@@ -7,6 +7,9 @@ process.on("unhandledRejection", (reason, promise) => {
     console.error("Unhandled Rejection:", reason);
 });
 
+// Fix crypto global untuk Baileys di Docker
+global.crypto = require('crypto');
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
