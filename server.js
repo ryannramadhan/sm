@@ -122,9 +122,19 @@ const detectMediaType = (filePath) => {
 };
 
 const addLog = (message, type = 'info') => {
-    const timestamp = new Date().toLocaleTimeString();
+    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
     const logEntry = { timestamp, message, type };
     logs.push(logEntry);
+
+    // Console log with color
+    const colors = {
+        info: '\x1b[36m',    // Cyan
+        success: '\x1b[32m', // Green
+        warning: '\x1b[33m', // Yellow
+        error: '\x1b[31m'    // Red
+    };
+    const reset = '\x1b[0m';
+    console.log(`${colors[type] || colors.info}[${timestamp}] ${message}${reset}`);
 
     if (logs.length > 100) {
         logs = logs.slice(-100);
@@ -142,7 +152,7 @@ async function iniciarConexaoWhatsApp() {
 
     try {
         isConnecting = true;
-        addLog('📱 Starting WhatsApp connection...', 'info');
+        addLog('� Initializing WhatsApp Web connection...', 'info');
 
         const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
         sock = makeWASocket({ auth: state, ...CONFIG });
@@ -151,7 +161,7 @@ async function iniciarConexaoWhatsApp() {
             const { connection, lastDisconnect, qr } = update;
 
             if (qr) {
-                addLog('📱 QR Code generated, scan it in WhatsApp', 'info');
+                addLog('📱 QR Code ready - Please scan with WhatsApp mobile app', 'info');
                 qrcode.toDataURL(qr).then(qrDataURL => {
                     currentQR = qrDataURL;
                     io.emit('qr', qrDataURL);
@@ -165,7 +175,7 @@ async function iniciarConexaoWhatsApp() {
                 io.emit('disconnected');
                 const shouldReconnect = (lastDisconnect?.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
                 if (shouldReconnect) {
-                    addLog('🔄 Reconnecting in 5 seconds...', 'info');
+                    addLog('🔄 Connection lost - Attempting to reconnect in 5 seconds...', 'warning');
                     setTimeout(iniciarConexaoWhatsApp, 5000);
                 }
             }
@@ -176,7 +186,7 @@ async function iniciarConexaoWhatsApp() {
                 currentQR = null;
                 io.emit('qr', null);
                 io.emit('ready');
-                addLog('✅ WhatsApp connected! Ready to start bot', 'success');
+                addLog('✅ WhatsApp Web connected successfully - Bot is ready!', 'success');
                 // const jids = [
                 //     '6287884717861@s.whatsapp.net',
                 //     '62895337337339@s.whatsapp.net'
@@ -203,8 +213,8 @@ async function iniciarConexaoWhatsApp() {
     } catch (error) {
         isConnecting = false;
         sock = null;
-        addLog(`❌ Connection error: ${error.message}`, 'error');
-        addLog('🔄 Trying to reconnect in 5 seconds...', 'info');
+        addLog(`❌ Connection failed: ${error.message}`, 'error');
+        addLog('🔄 Retrying connection in 5 seconds...', 'warning');
         setTimeout(iniciarConexaoWhatsApp, 5000);
     }
 }
@@ -294,7 +304,7 @@ async function enviarStatusMention(sock) {
         try {
             const groupMetadata = await sock.groupMetadata(MessagesConfig.settings.groupJid);
             recipients = groupMetadata.participants.map(p => p.id);
-            addLog(`👥 Loaded ${recipients.length} group members from: ${groupMetadata.subject}`, 'info');
+            addLog(`👥 Found ${recipients.length} members in group "${groupMetadata.subject}"`, 'info');
 
             // 🔹 New behavior: mention inside the group
             if (MessagesConfig.settings.mentionInsideGroup) {
@@ -333,9 +343,9 @@ async function enviarStatusMention(sock) {
                     };
                 }
 
-                addLog(`📢 Sending mention inside group ${groupMetadata.subject}`, 'info');
+                addLog(`📢 Sending message with mentions to group "${groupMetadata.subject}"...`, 'info');
                 await sock.sendMessage(MessagesConfig.settings.groupJid, messageContent);
-                addLog(`✅ Message sent in group ${groupMetadata.subject}`, 'success');
+                addLog(`✅ Message delivered successfully to group "${groupMetadata.subject}"`, 'success');
                 return; // does not proceed to private status mentions
             }
         } catch (err) {
@@ -346,9 +356,9 @@ async function enviarStatusMention(sock) {
         recipients = MessagesConfig.recipients.map(phone => formatPhoneNumber(phone));
     }
 
-    addLog(`🚀 Sending to: ${recipients.length} recipients`, 'info');
-    addLog(`📋 Message: ${message.name} (index: ${activeMessageIndex})`, 'info');
-    addLog(`📱 Mention mode: ${mentionMode === 'grouped' ? 'Grouped (5 per story)' : 'Single (all in one story)'}`, 'info');
+    addLog(`🚀 Preparing to send status mentions to ${recipients.length} recipient(s)`, 'info');
+    addLog(`📋 Selected message: "${message.name}"`, 'info');
+    addLog(`📱 Mode: ${mentionMode === 'grouped' ? 'Grouped (5 mentions per status)' : 'Single status (all mentions at once)'}`, 'info');
 
     try {
         io.emit('progress', {
@@ -413,8 +423,8 @@ async function enviarStatusGrouped(sock, recipients) {
     const totalRecipients = recipients.length;
     const totalStories = Math.ceil(totalRecipients / maxMentionsPerStory);
 
-    addLog(`📊 Created ${totalStories} stories for ${totalRecipients} recipients`, 'info');
-    addLog(`📝 Maximum of ${maxMentionsPerStory} mentions per story (Meta recommendation)`, 'info');
+    addLog(`📊 Creating ${totalStories} status(es) for ${totalRecipients} recipient(s)`, 'info');
+    addLog(`📝 Using ${maxMentionsPerStory} mentions per status (WhatsApp recommended limit)`, 'info');
 
     for (let storyIndex = 0; storyIndex < totalStories; storyIndex++) {
         if (shouldStop) {
@@ -427,8 +437,8 @@ async function enviarStatusGrouped(sock, recipients) {
         const endIndex = Math.min(startIndex + maxMentionsPerStory, totalRecipients);
         const storyRecipients = recipients.slice(startIndex, endIndex);
 
-        addLog(`📱 Creating Story ${storyIndex + 1}/${totalStories}`, 'info');
-        addLog(`👥 Recipients in this story: ${storyRecipients.length} (${startIndex + 1}-${endIndex})`, 'info');
+        addLog(`📱 Creating status ${storyIndex + 1} of ${totalStories}...`, 'info');
+        addLog(`👥 This status will mention ${storyRecipients.length} people (recipients ${startIndex + 1}-${endIndex})`, 'info');
 
         // Draw message for this story (random mode) or use fixed
         let messageContent = {};
@@ -437,14 +447,14 @@ async function enviarStatusGrouped(sock, recipients) {
 
         if (messageSelection.mode === "random") {
             activeMessageIndex = Math.floor(Math.random() * MessagesConfig.messages.length);
-            addLog(`🎲 Story ${storyIndex + 1}: Random message selected (index: ${activeMessageIndex})`, 'info');
+            addLog(`🎲 Status ${storyIndex + 1}: Using random message selection`, 'info');
         } else {
             activeMessageIndex = messageSelection.fixedIndex;
-            addLog(`📍 Story ${storyIndex + 1}: Fixed message (index: ${activeMessageIndex})`, 'info');
+            addLog(`📍 Status ${storyIndex + 1}: Using fixed message`, 'info');
         }
 
         const message = MessagesConfig.messages[activeMessageIndex];
-        addLog(`📋 Story ${storyIndex + 1}: ${message.name}`, 'info');
+        addLog(`📋 Status ${storyIndex + 1}: Message "${message.name}" selected`, 'info');
 
         // Preparar conteúdo da mensagem
         if (message.media.enabled) {
@@ -500,15 +510,15 @@ async function enviarStatusGrouped(sock, recipients) {
             }
         );
 
-        addLog(`📤 Story ${storyIndex + 1} created with media`, 'success');
+        addLog(`📤 Status ${storyIndex + 1} posted successfully`, 'success');
 
         // Send mentions for this story
-        addLog(`📨 Sending mentions to ${storyRecipients.length} recipients...`, 'info');
+        addLog(`📨 Sending ${storyRecipients.length} mention(s) for status ${storyIndex + 1}...`, 'info');
 
         // Send all mentions at once for this story (limit 5 per story)
         await sock.sendStatusMentions(messageContent, storyRecipients);
 
-        addLog(`✅ ${storyRecipients.length} mentions sent in Story ${storyIndex + 1}`, 'success');
+        addLog(`✅ All ${storyRecipients.length} mention(s) sent for status ${storyIndex + 1}`, 'success');
 
         // Update progress after all mentions sent
         const progressAfterMentions = progressStart + Math.floor((100 / totalStories));
@@ -517,12 +527,12 @@ async function enviarStatusGrouped(sock, recipients) {
             percent: Math.min(95, progressAfterMentions)
         });
 
-        addLog(`🎉 Story ${storyIndex + 1}/${totalStories} completed successfully!`, 'success');
+        addLog(`🎉 Status ${storyIndex + 1} of ${totalStories} completed successfully!`, 'success');
 
         // Delay between stories (except the last one)
         if (storyIndex < totalStories - 1) {
             const delayBetweenStories = getRandomDelay(MessagesConfig.settings.delay.min, MessagesConfig.settings.delay.max);
-            addLog(`⏱️ Waiting ${delayBetweenStories / 1000}s before next story...`, 'info');
+            addLog(`⏱️ Waiting ${delayBetweenStories / 1000} seconds before creating next status...`, 'info');
 
             io.emit('progress', {
                 text: `⏱️ Waiting ${delayBetweenStories / 1000}s before Story ${storyIndex + 2}/${totalStories} | 🎉 Story ${storyIndex + 1} completed`,
@@ -533,7 +543,7 @@ async function enviarStatusGrouped(sock, recipients) {
         }
     }
 
-    addLog('🎊 All stories sent successfully!', 'success');
+    addLog('🎊 All status mentions sent successfully! Campaign completed.', 'success');
     io.emit('progress', { text: 'Completed!', percent: 100 });
 
     setTimeout(() => {
@@ -544,7 +554,7 @@ async function enviarStatusGrouped(sock, recipients) {
 async function enviarStatusUnico(sock, messageContent, recipients) {
     const totalRecipients = recipients.length;
 
-    addLog(`📱 Creating 1 story for all ${totalRecipients} recipients`, 'info');
+    addLog(`📱 Creating single status for all ${totalRecipients} recipient(s)`, 'info');
 
     io.emit('progress', { text: `📱 Single story | 👥 ${totalRecipients} recipients | 📋 Preparing media...`, percent: 30 });
 
@@ -560,11 +570,11 @@ async function enviarStatusUnico(sock, messageContent, recipients) {
         }
     );
 
-    addLog('📤 Status with media sent', 'success');
-    io.emit('progress', { text: `📤 Story created! | 📨 Sending mentions... | 👥 ${totalRecipients} recipients`, percent: 50 });
+    addLog('📤 Status posted successfully', 'success');
+    io.emit('progress', { text: `📤 Status created! | 📨 Sending mentions... | 👥 ${totalRecipients} recipients`, percent: 50 });
 
     // Send mentions
-    addLog(`📨 Sending mentions to ${totalRecipients} recipients (all in one story)...`, 'info');
+    addLog(`📨 Sending all ${totalRecipients} mention(s) in single status...`, 'info');
     io.emit('progress', { text: `📨 Sending mentions... | 👥 ${totalRecipients} recipients`, percent: 55 });
 
     await sock.sendStatusMentions(messageContent, recipients);
@@ -590,10 +600,10 @@ app.post('/api/config', (req, res) => {
     try {
         MessagesConfig = req.body;
         fs.writeFileSync('messages.json', JSON.stringify(MessagesConfig, null, 4));
-        addLog('✅ Configuration saved successfully', 'success');
+        addLog('💾 Configuration saved successfully', 'success');
         res.json({ success: true });
     } catch (error) {
-        addLog(`❌ Error saving configuration: ${error.message}`, 'error');
+        addLog(`❌ Failed to save configuration: ${error.message}`, 'error');
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -614,7 +624,7 @@ app.post('/api/start', (req, res) => {
 
     botRunning = true;
     shouldStop = false;
-    addLog('🚀 Starting bot...', 'info');
+    addLog('🚀 Bot started - Beginning to send status mentions...', 'info');
     iniciarBot();
     res.json({ success: true });
 });
@@ -631,7 +641,7 @@ app.post('/api/stop', (req, res) => {
         sock = null;
         isWhatsAppReady = false;
     }
-    addLog('⏹️ Bot stopped', 'info');
+    addLog('⏹️ Bot stopped by user', 'warning');
     res.json({ success: true });
 });
 
@@ -643,7 +653,7 @@ app.post('/api/disconnect', (req, res) => {
         isConnecting = false;
         currentQR = null;
         io.emit('qr', null);
-        addLog('🔌 WhatsApp connection disconnected', 'info');
+        addLog('🔌 WhatsApp disconnected successfully', 'success');
         res.json({ success: true });
     } else {
         res.json({ success: false, message: 'No active connection' });
@@ -683,7 +693,7 @@ app.post('/api/upload', upload.single('media'), (req, res) => {
         }
 
         const fileUrl = `/assets/${req.file.filename}`;
-        addLog(`📁 File uploaded: ${req.file.originalname}`, 'info');
+        addLog(`📁 Media uploaded: "${req.file.originalname}" (${(req.file.size / 1024 / 1024).toFixed(2)} MB)`, 'success');
 
         res.json({
             success: true,
@@ -912,6 +922,10 @@ io.on('connection', (socket) => {
 
 iniciarConexaoWhatsApp();
 server.listen(PORT, () => {
-    console.log(`🌐 Server running at http://localhost:${PORT}`);
-    addLog(`🌐 Server started on port ${PORT}`, 'info');
+    console.log(`\n${'='.repeat(50)}`);
+    console.log(`🌐 Story Mentions Bot - Server Started`);
+    console.log(`📍 Local: http://localhost:${PORT}`);
+    console.log(`⏰ Time: ${new Date().toLocaleString()}`);
+    console.log(`${'='.repeat(50)}\n`);
+    addLog(`🌐 Server started successfully on port ${PORT}`, 'success');
 });
